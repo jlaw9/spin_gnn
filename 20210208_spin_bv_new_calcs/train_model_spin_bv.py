@@ -7,8 +7,7 @@ from tensorflow.keras import layers
 
 import nfp
 
-from preprocess_inputs_spin_bv import preprocessor
-preprocessor.from_json('tfrecords_spin_bv/preprocessor.json')
+from preprocessor import preprocessor
 
 from loss import AtomInfMask, KLWithLogits
 
@@ -50,7 +49,11 @@ padding_values = (preprocessor.padding_values,
 
 num_train = len(np.load('split_spin_bv.npz', allow_pickle=True)['train'])
 
-train_dataset = tf.data.TFRecordDataset('tfrecords_spin_bv/train.tfrecord.gz', compression_type='GZIP')\
+
+train_dataset = tf.data.TFRecordDataset('tfrecords_spin_bv/train.tfrecord.gz', compression_type='GZIP')
+train_new_dataset = tf.data.TFRecordDataset('tfrecords_spin_bv/train_new.tfrecord.gz', compression_type='GZIP')
+
+train_dataset = train_dataset.concatenate(train_new_dataset) \
     .map(parse_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
     .cache().shuffle(buffer_size=num_train).repeat()\
     .padded_batch(batch_size=batch_size,
