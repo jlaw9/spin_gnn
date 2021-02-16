@@ -15,7 +15,6 @@ import nfp
 
 from preprocessor import preprocessor
 
-from loss import AtomInfMask, KLWithLogits, RedoxAttention
 from model import build_embedding_model
 
 def parse_example(example):
@@ -55,7 +54,7 @@ train_dataset = tf.data.TFRecordDataset('tfrecords_redox/train.tfrecord.gz', com
 
 valid_dataset = tf.data.TFRecordDataset('tfrecords_redox/valid.tfrecord.gz', compression_type='GZIP')\
     .map(parse_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
-    .cache().shuffle(buffer_size=5000).repeat()\
+    .cache()\
     .padded_batch(batch_size=batch_size,
                   padded_shapes=padded_shapes,
                   padding_values=padding_values)\
@@ -87,7 +86,7 @@ if __name__ == "__main__":
     
     redox_model.summary()
 
-    model_name = '20210107_redox_model'
+    model_name = '20210214_redox_original_data'
 
     if not os.path.exists(model_name):
         os.makedirs(model_name)
@@ -99,7 +98,6 @@ if __name__ == "__main__":
     redox_model.fit(train_dataset,
                     validation_data=valid_dataset,
                     steps_per_epoch=math.ceil(num_train/batch_size),
-                    validation_steps=math.ceil(5000/batch_size),
                     epochs=500,
                     callbacks=[checkpoint, csv_logger],
                     verbose=1)

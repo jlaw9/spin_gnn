@@ -1,7 +1,7 @@
 from tensorflow.keras import layers
 import tensorflow as tf
 
-from nfp import EdgeUpdate, NodeUpdate, GlobalUpdate
+import nfp 
 
 atom_features = 128
 num_messages = 6
@@ -33,14 +33,18 @@ def build_embedding_model(preprocessor,
                                   name='bond_embedding', mask_zero=True)(bond_class)
 
 
-    global_state = GlobalUpdate(head_features, num_heads)([atom_state, bond_state, connectivity])
+    global_state = nfp.GlobalUpdate(head_features, num_heads)([atom_state, bond_state, connectivity])
 
     def message_block(atom_state, bond_state, connectivity, global_state, i):
 
-        bond_state = EdgeUpdate(dropout=dropout)([atom_state, bond_state, connectivity])
-        atom_state = NodeUpdate(dropout=dropout)([atom_state, bond_state, connectivity])
-        global_state = GlobalUpdate(head_features, num_heads, dropout=dropout)(
-            [atom_state, bond_state, connectivity, global_state])
+        new_bond_state = nfp.EdgeUpdate()([atom_state, bond_state, connectivity])
+        bond_state = layers.Add()([bond_state, new_bond_state])
+
+        new_atom_state = nfp.NodeUpdate()([atom_state, bond_state, connectivity])
+        atom_state = layers.Add()([atom_state, new_atom_state])
+
+        new_global_state = nfp.GlobalUpdate(head_features, num_heads)([atom_state, bond_state, connectivity])
+        global_state = layers.Add()([new_global_state, global_state])
 
         return atom_state, bond_state, global_state
 

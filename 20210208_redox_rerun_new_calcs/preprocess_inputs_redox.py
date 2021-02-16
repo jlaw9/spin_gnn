@@ -10,7 +10,7 @@ tqdm.pandas()
 from preprocessor import preprocessor
 
 redox_df = pd.read_csv('/projects/rlmolecule/pstjohn/spin_gnn/redox_data.csv.gz')
-redox_new_calcs = pd.read_csv('/projects/rlmolecule/pstjohn/spin_gnn/20210109_dft_ml_redox_data.csv.gz')
+redox_new_calcs = pd.read_csv('/projects/rlmolecule/pstjohn/spin_gnn/20210216_fixed_rl_redox_data.csv')
 
 if __name__ == '__main__':
 

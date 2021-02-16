@@ -37,10 +37,14 @@ def build_embedding_model(preprocessor,
 
     def message_block(atom_state, bond_state, connectivity, global_state, i):
 
-        bond_state = EdgeUpdate(dropout=dropout)([atom_state, bond_state, connectivity])
-        atom_state = NodeUpdate(dropout=dropout)([atom_state, bond_state, connectivity])
-        global_state = GlobalUpdate(head_features, num_heads, dropout=dropout)(
-            [atom_state, bond_state, connectivity, global_state])
+        new_bond_state = nfp.EdgeUpdate()([atom_state, bond_state, connectivity])
+        bond_state = layers.Add()([bond_state, new_bond_state])
+
+        new_atom_state = nfp.NodeUpdate()([atom_state, bond_state, connectivity])
+        atom_state = layers.Add()([atom_state, new_atom_state])
+
+        new_global_state = nfp.GlobalUpdate(8, 2)([atom_state, bond_state, connectivity])
+        global_state = layers.Add()([new_global_state, global_state])
 
         return atom_state, bond_state, global_state
 

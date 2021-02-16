@@ -90,7 +90,7 @@ if __name__ == "__main__":
     
     redox_model.summary()
 
-    model_name = '20210107_redox_model'
+    model_name = '20210214_redox_model_new_data'
 
     if not os.path.exists(model_name):
         os.makedirs(model_name)
