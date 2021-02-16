@@ -111,7 +111,7 @@ if __name__ == "__main__":
     
     model.summary()
 
-    model_name = '20201012_spin_bv'
+    model_name = '20210215_spin_bv_new_nfp'
 
     if not os.path.exists(model_name):
         os.makedirs(model_name)
