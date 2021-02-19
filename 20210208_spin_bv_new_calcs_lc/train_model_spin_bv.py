@@ -44,7 +44,12 @@ def parse_example(example):
     return parsed, targets
 
 
-splits = np.load('split_spin_bv.npz', allow_pickle=True)
+model_name = "20210216_spin_bv_lc"
+inputs_dir = f"inputs/{model_name}"
+outputs_dir = f"outputs/{model_name}"
+tf_inputs_dir = f"{inputs_dir}/tfrecords"
+
+splits = np.load(f'{inputs_dir}/split_spin_bv.npz', allow_pickle=True)
 print(splits)
 num_train = len(splits['train'])
 num_new_train = len(splits['train_new'])
@@ -72,9 +77,9 @@ padding_values = (preprocessor.padding_values,
                   {'spin': tf.constant(np.nan, dtype=tf.float64),
                    'bur_vol': tf.constant(np.nan, dtype=tf.float64)})
 
-train_dataset = tf.data.TFRecordDataset('tfrecords_spin_bv/train.tfrecord.gz', compression_type='GZIP')
+train_dataset = tf.data.TFRecordDataset(f'{tf_inputs_dir}/train.tfrecord.gz', compression_type='GZIP')
 # add the new training examples here
-train_new_dataset = tf.data.TFRecordDataset('tfrecords_spin_bv/train_new.tfrecord.gz', compression_type='GZIP')\
+train_new_dataset = tf.data.TFRecordDataset(f'{tf_inputs_dir}/train_new.tfrecord.gz', compression_type='GZIP')\
     .take(learn_curve_num_train)
 
 train_dataset = train_dataset.concatenate(train_new_dataset)\
@@ -85,7 +90,7 @@ train_dataset = train_dataset.concatenate(train_new_dataset)\
                   padding_values=padding_values)\
     .prefetch(tf.data.experimental.AUTOTUNE)
 
-valid_dataset = tf.data.TFRecordDataset('tfrecords_spin_bv/valid.tfrecord.gz', compression_type='GZIP')\
+valid_dataset = tf.data.TFRecordDataset(f'{tf_inputs_dir}/valid.tfrecord.gz', compression_type='GZIP')\
     .map(parse_example, num_parallel_calls=tf.data.experimental.AUTOTUNE)\
     .cache().shuffle(buffer_size=5000).repeat()\
     .padded_batch(batch_size=batch_size,
@@ -133,16 +138,13 @@ if __name__ == "__main__":
     
     model.summary()
 
-    model_name = '20210208_spin_bv_lc/n_{}'.format(learn_curve_num_train)
+    lc_model_name = f'{outputs_dir}/n_{learn_curve_num_train}'
     print(model_name)
+    os.makedirs(lc_model_name, exist_ok=True)
 
-
-    if not os.path.exists(model_name):
-        os.makedirs(model_name)
-
-    filepath = model_name + "/best_model.hdf5"
+    filepath = lc_model_name + "/best_model.hdf5"
     checkpoint = tf.keras.callbacks.ModelCheckpoint(filepath, save_best_only=True, verbose=0)
-    csv_logger = tf.keras.callbacks.CSVLogger(model_name + '/log.csv')
+    csv_logger = tf.keras.callbacks.CSVLogger(lc_model_name + '/log.csv')
 
     model.fit(train_dataset,
               validation_data=valid_dataset,

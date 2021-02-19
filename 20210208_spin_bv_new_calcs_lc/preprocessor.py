@@ -41,4 +41,4 @@ preprocessor = nfp.SmilesPreprocessor(
     atom_features=atom_featurizer, bond_features=bond_featurizer, explicit_hs=False)
 
 preprocessor.from_json(os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), 'tfrecords_spin_bv/preprocessor.json'))
+    os.path.dirname(os.path.abspath(__file__)), 'inputs/preprocessor.json'))

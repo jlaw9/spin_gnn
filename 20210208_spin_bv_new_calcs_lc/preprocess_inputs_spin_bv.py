@@ -8,36 +8,41 @@ from tqdm import tqdm
                 
 from preprocessor import preprocessor
 
-cdf_spin = pd.read_csv('/projects/rlmolecule/pstjohn/atom_spins/cdf_spins.csv.gz')
-cdf_bv = pd.read_csv('/projects/rlmolecule/pstjohn/atom_spins/cdf_buried_volume.csv.gz', index_col=0)
+redf_spin = pd.read_csv('/projects/rlmolecule/pstjohn/atom_spins/redf_spins_expanded.csv.gz')
+redf_bv = pd.read_csv('/projects/rlmolecule/svss/Project-Redox/bur-vol_data_water/buried_volumes_water_all.csv.gz', index_col=0).drop(['Unnamed: 0.1'], 1)
 
-cdf_spin = cdf_spin[cdf_spin.atom_type != 'H']
-cdf = cdf_spin.merge(cdf_bv, on=['smiles', 'atom_index'], how='left')    
+redf_spin = redf_spin[redf_spin.atom_type != 'H']
+redf = redf_spin.merge(redf_bv, on=['smiles', 'atom_index'], how='inner')
 
-new_data = pd.read_csv('/projects/rlmolecule/pstjohn/spin_gnn/20210109_dft_ml_spin_bv_data.csv.gz')
+new_data = pd.read_csv('/projects/rlmolecule/pstjohn/spin_gnn/20210211_fixed_rl_spin_bv_data.csv.gz')
 new_data = new_data.rename(columns={'fractional_spin': 'spin'})[['smiles', 'atom_index', 'spin', 'buried_vol']]
+
+model_name = "20210216_spin_bv_lc"
+inputs_dir = f"inputs/{model_name}"
+tf_inputs_dir = f"{inputs_dir}/tfrecords"
 
 if __name__ == '__main__':
 
     # Get a shuffled list of unique SMILES
-    cdf_smiles = cdf.smiles.unique()
+    redf_smiles = redf.smiles.unique()
     new_smiles = new_data.smiles.unique()
     
     rng = np.random.default_rng(1)
-    rng.shuffle(cdf_smiles)
+    rng.shuffle(redf_smiles)
     rng.shuffle(new_smiles)
 
     # split off 5000 each for test and valid sets
-    test, valid, train = np.split(cdf_smiles, [5000, 10000])
+    test, valid, train = np.split(redf_smiles, [5000, 10000])
     test_new, train_new = np.split(new_smiles, [500])
 
     # Save these splits for later
-    splits_file = 'split_spin_bv.npz'
+    splits_file = f'{inputs_dir}/split_spin_bv.npz'
+    os.makedirs(os.path.dirname(splits_file), exist_ok=True)
     print(f"saving splits to {splits_file}")
     np.savez_compressed(splits_file, train=train, valid=valid, test=test, test_new=test_new, train_new=train_new)
 
-    cdf_train = cdf[cdf.smiles.isin(train)]
-    cdf_valid = cdf[cdf.smiles.isin(valid)]
+    redf_train = redf[redf.smiles.isin(train)]
+    redf_valid = redf[redf.smiles.isin(valid)]
     
     new_train = new_data[new_data.smiles.isin(train_new)]
     new_test = new_data[new_data.smiles.isin(test_new)]    
@@ -58,44 +63,20 @@ if __name__ == '__main__':
 
             yield example_proto.SerializeToString()
 
-    
-    serialized_train_new_dataset = tf.data.Dataset.from_generator(
-        lambda: inputs_generator(new_train, train=False),
-        output_types=tf.string, output_shapes=())
+    inputs = [
+            ('train_new', new_train),
+            ('valid_new', new_test),
+            ('train', redf_train),
+            ('valid', redf_valid)]
 
-    filename = 'tfrecords_spin_bv/train_new.tfrecord.gz'
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-    print(f"writing {filename}")
-    writer = tf.data.experimental.TFRecordWriter(filename, compression_type='GZIP')
-    writer.write(serialized_train_new_dataset)
+    for dataset_name, dataset in inputs:
+        serialized_dataset = tf.data.Dataset.from_generator(
+            lambda: inputs_generator(dataset, train=False),
+            output_types=tf.string, output_shapes=())
 
-    serialized_valid_new_dataset = tf.data.Dataset.from_generator(
-        lambda: inputs_generator(new_test, train=False),
-        output_types=tf.string, output_shapes=())
-
-    filename = 'tfrecords_spin_bv/valid_new.tfrecord.gz'
-    print(f"writing {filename}")
-    writer = tf.data.experimental.TFRecordWriter(filename, compression_type='GZIP')
-    writer.write(serialized_valid_new_dataset)
-
-               
-            
-    serialized_train_dataset = tf.data.Dataset.from_generator(
-        lambda: inputs_generator(cdf_train, train=False),
-        output_types=tf.string, output_shapes=())
-
-    filename = 'tfrecords_spin_bv/train.tfrecord.gz'
-    print(f"writing {filename}")
-    writer = tf.data.experimental.TFRecordWriter(filename, compression_type='GZIP')
-    writer.write(serialized_train_dataset)
-
-    serialized_valid_dataset = tf.data.Dataset.from_generator(
-        lambda: inputs_generator(cdf_valid, train=False),
-        output_types=tf.string, output_shapes=())
-
-    filename = 'tfrecords_spin_bv/valid.tfrecord.gz'
-    print(f"writing {filename}")
-    writer = tf.data.experimental.TFRecordWriter(filename, compression_type='GZIP')
-    writer.write(serialized_valid_dataset)
-    
+        filename = f'{tf_inputs_dir}/{dataset_name}.tfrecord.gz'
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
+        print(f"writing {filename}")
+        writer = tf.data.experimental.TFRecordWriter(filename, compression_type='GZIP')
+        writer.write(serialized_dataset)
 
